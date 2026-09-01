@@ -25,11 +25,11 @@ interface
 
 uses
   { RTL }
-  Classes,
+  Classes, sysutils,
   { Code Tools }
-  CodeToolManager, CodeCache, BasicCodeTools,
+  CodeToolManager, CodeCache, BasicCodeTools, CodeTree,
   { Protocol }
-  LSP.Basetak , LSP.Basic;
+  LSP.Base , LSP.Basic;
 
 type
   
@@ -51,32 +51,88 @@ var
   X, Y, AbsPos: Integer;
   NewX, NewY, NewTopLine: integer;
 
-  function CheckPlainComments(
-      Source: string;
-      CurAbsPos: integer
-    ): boolean;
+  IsString, IsComment: Boolean;
+
+  procedure GetContextAtPosition(CodeBuffer: TCodeBuffer; CaretX, CaretY: Integer; 
+    out IsString, IsComment: Boolean);
   var
-    Filename: String;
-    p, EndPos : Integer;
+    Tool: TCodeTool;
+    CleanPos, RealPos, i: Integer;
+    InStr, InLineComment, InBlock1, InBlock2: Boolean;
+    Src: String;
   begin
-    // check if cursor in a comment (ignoring directives)
-    Result := false;
-    if (CurAbsPos < 1) or (CurAbsPos > length(Source)) then exit;
-    p := 1;
-    repeat
-      p := FindNextComment(Source, p);
-      if p > CurAbsPos then break;
-      EndPos :=
-        FindCommentEnd(
-          Source,
-          p,
-          CodeToolBoss.CurCodeTool.Scanner.NestedComments
-        );
-        DoLog('Endpos %d; CurabsPos %d; snip: %s', [EndPos, CurAbsPos, copy(Source, CurAbsPos - 50, 100)]);
-      if EndPos > CurAbsPos then
-        exit(true);
-      p := EndPos;
-    until false;
+    IsString := False;
+    IsComment := False;
+
+    if not CodeToolBoss.Explore(CodeBuffer, Tool, False) or (Tool = nil) then 
+      Exit;
+
+    CodeBuffer.LineColToPosition(CaretY, CaretX, RealPos);
+    
+    if RealPos < 1 then 
+      Exit;
+  
+    Src := CodeBuffer.Source;
+    InStr := False;
+    InLineComment := False; //  // ...
+    InBlock1 := False;      //  { ... }
+    InBlock2 := False;      //  (* ... *)
+    
+    i := 0;
+    while i < RealPos do
+    begin
+      // Line comments terminate at line breaks
+      if Src[i] in [#13, #10] then 
+        InLineComment := False;
+  
+      if not InBlock1 and not InBlock2 and not InLineComment then
+      begin
+        if Src[i] = '''' then
+        begin
+          InStr := not InStr
+        end
+        else 
+        begin 
+          if not InStr then
+          begin
+            if Src[i] = '{' then 
+              InBlock1 := True
+            else if (i < Length(Src)) and (Src[i] = '(') and (Src[i+1] = '*') then
+            begin
+              InBlock2 := True;
+              Inc(i); // Skip the '*'
+            end
+            else if (i < Length(Src)) and (Src[i] = '/') and (Src[i+1] = '/') then
+            begin
+              InLineComment := True;
+              Inc(i); // Skip the second '/'
+            end;
+          end;
+        end;
+      end
+      else
+      begin
+        // Trick: If we've reached the caret position exactly, break out early.
+        // This ensures that clicking exactly on a closing '}' still registers 
+        // as being "inside" the comment block.
+        if i = RealPos then Break; 
+  
+        // Check for block comment terminators
+        if InBlock1 and (Src[i] = '}') then
+          InBlock1 := False
+        else if InBlock2 and (i < Length(Src)) and (Src[i] = '*') and (Src[i+1] = ')') then
+        begin
+          InBlock2 := False;
+          Inc(i); // Skip the ')'
+        end;
+      end;
+  
+      Inc(i);
+    end;
+  
+    // Final evaluation
+    IsComment := InBlock1 or InBlock2 or InLineComment;
+    IsString := InStr;
   end;
 
 begin with Params do
@@ -84,6 +140,9 @@ begin with Params do
     Code := CodeToolBoss.FindFile(textDocument.localPath);
     X := position.character;
     Y := position.line;
+
+    GetContextAtPosition(Code, X + 1, Y + 1, IsString, IsComment);
+
     { 
       NOTE: Use FindMainDeclaration to skip forward declarations and find
       the main/complete declaration. This is the correct behavior for
@@ -99,21 +158,18 @@ begin with Params do
       
       FindMainDeclaration returns the main declaration location.
     }
-    if CodeToolBoss.FindMainDeclaration(Code, X + 1, Y + 1, NewCode, NewX, NewY, NewTopLine) then
-      begin
-        Result := TLocation.Create;
-        Result.uri := PathToURI(NewCode.Filename);
-        Result.range := GetIdentifierRangeAtPos(NewCode, NewX, NewY - 1);
-      end
-    else
-      begin
-        Result := nil;
-        Code.LineColToPosition(x, y, AbsPos);
-        if not CheckPlainComments(Code.Source, AbsPos) then
-          begin
+    if not IsString and not IsComment then
+      if CodeToolBoss.FindMainDeclaration(Code, X + 1, Y + 1, NewCode, NewX, NewY, NewTopLine) then
+        begin
+          Result := TLocation.Create;
+          Result.uri := PathToURI(NewCode.Filename);
+          Result.range := GetIdentifierRangeAtPos(NewCode, NewX, NewY - 1);
+        end
+      else
+        begin
+          Result := nil;
             PublishCodeToolsError(Transport,'');
-          end;
-      end;
+        end;
   end;
 end;
 
