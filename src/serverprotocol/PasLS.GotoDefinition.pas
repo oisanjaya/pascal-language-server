@@ -27,9 +27,9 @@ uses
   { RTL }
   Classes,
   { Code Tools }
-  CodeToolManager, CodeCache,
+  CodeToolManager, CodeCache, BasicCodeTools,
   { Protocol }
-  LSP.Base, LSP.Basic;
+  LSP.Basetak , LSP.Basic;
 
 type
   
@@ -48,8 +48,37 @@ function TGotoDefinition.Process(var Params: TTextDocumentPositionParams): TLoca
 var
   Code: TCodeBuffer;
   NewCode: TCodeBuffer;
-  X, Y: Integer;
+  X, Y, AbsPos: Integer;
   NewX, NewY, NewTopLine: integer;
+
+  function CheckPlainComments(
+      Source: string;
+      CurAbsPos: integer
+    ): boolean;
+  var
+    Filename: String;
+    p, EndPos : Integer;
+  begin
+    // check if cursor in a comment (ignoring directives)
+    Result := false;
+    if (CurAbsPos < 1) or (CurAbsPos > length(Source)) then exit;
+    p := 1;
+    repeat
+      p := FindNextComment(Source, p);
+      if p > CurAbsPos then break;
+      EndPos :=
+        FindCommentEnd(
+          Source,
+          p,
+          CodeToolBoss.CurCodeTool.Scanner.NestedComments
+        );
+        DoLog('Endpos %d; CurabsPos %d; snip: %s', [EndPos, CurAbsPos, copy(Source, CurAbsPos - 50, 100)]);
+      if EndPos > CurAbsPos then
+        exit(true);
+      p := EndPos;
+    until false;
+  end;
+
 begin with Params do
   begin
     Code := CodeToolBoss.FindFile(textDocument.localPath);
@@ -79,7 +108,11 @@ begin with Params do
     else
       begin
         Result := nil;
-        PublishCodeToolsError(Transport,'');
+        Code.LineColToPosition(x, y, AbsPos);
+        if not CheckPlainComments(Code.Source, AbsPos) then
+          begin
+            PublishCodeToolsError(Transport,'');
+          end;
       end;
   end;
 end;
