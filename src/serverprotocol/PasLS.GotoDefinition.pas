@@ -51,21 +51,32 @@ var
   X, Y, AbsPos: Integer;
   NewX, NewY, NewTopLine: integer;
 
-  IsString, IsComment: Boolean;
+  IsString, IsComment, isKeyword: Boolean;
 
   procedure GetContextAtPosition(CodeBuffer: TCodeBuffer; CaretX, CaretY: Integer; 
-    out IsString, IsComment: Boolean);
+    out IsString, IsComment, isKeyword: Boolean);
+  const
+    // A comprehensive list of Free Pascal / Delphi reserved keywords
+    PascalKeywords: array[0..67] of string = (
+      'absolute', 'and', 'array', 'as', 'asm', 'begin', 'case', 'class', 'const',
+      'constructor', 'destructor', 'dispose', 'div', 'do', 'downto', 'else',
+      'end', 'except', 'exports', 'file', 'finalization', 'finally', 'for',
+      'function', 'goto', 'if', 'implementation', 'in', 'inherited',
+      'initialization', 'inline', 'interface', 'is', 'label', 'library', 'mod',
+      'new', 'nil', 'not', 'object', 'of', 'operator', 'or', 'out', 'packed',
+      'procedure', 'program', 'property', 'raise', 'record', 'repeat',
+      'resourcestring', 'set', 'shl', 'shr', 'string', 'then', 'threadvar',
+      'to', 'try', 'type', 'unit', 'until', 'uses', 'var', 'while', 'with', 'xor'
+    );
   var
-    Tool: TCodeTool;
-    CleanPos, RealPos, i: Integer;
+    RealPos, i: Integer;
+    StartWord, EndWord: Integer;
     InStr, InLineComment, InBlock1, InBlock2: Boolean;
-    Src: String;
+    Src, CurrentWord, TestWord: String;
   begin
     IsString := False;
     IsComment := False;
-
-    if not CodeToolBoss.Explore(CodeBuffer, Tool, False) or (Tool = nil) then 
-      Exit;
+    isKeyword := False;
 
     CodeBuffer.LineColToPosition(CaretY, CaretX, RealPos);
     
@@ -78,8 +89,8 @@ var
     InBlock1 := False;      //  { ... }
     InBlock2 := False;      //  (* ... *)
     
-    i := 0;
-    while i < RealPos do
+    i := 1;
+    while i <= RealPos do
     begin
       // Line comments terminate at line breaks
       if Src[i] in [#13, #10] then 
@@ -133,6 +144,31 @@ var
     // Final evaluation
     IsComment := InBlock1 or InBlock2 or InLineComment;
     IsString := InStr;
+
+    if not (IsString or IsComment) then
+      begin
+        if Src[RealPos] in ['a'..'z', 'A'..'Z', '0'..'9', '_'] then
+        begin
+          StartWord := RealPos;
+          while (StartWord > 1) and (Src[StartWord - 1] in ['a'..'z', 'A'..'Z', '0'..'9', '_']) do
+            Dec(StartWord);
+    
+          EndWord := RealPos;
+          while (EndWord < Length(Src)) and (Src[EndWord + 1] in ['a'..'z', 'A'..'Z', '0'..'9', '_']) do
+            Inc(EndWord);
+    
+          CurrentWord := Copy(Src, StartWord, EndWord - StartWord + 1);
+        end;
+        
+        for TestWord in PascalKeywords do
+          begin
+            if CompareTextCT(TestWord, CurrentWord) = 0 then
+              begin
+                isKeyword := True;
+                break;
+              end;
+          end;
+      end;
   end;
 
 begin with Params do
@@ -141,7 +177,7 @@ begin with Params do
     X := position.character;
     Y := position.line;
 
-    GetContextAtPosition(Code, X + 1, Y + 1, IsString, IsComment);
+    GetContextAtPosition(Code, X + 1, Y + 1, IsString, IsComment, isKeyword);
 
     { 
       NOTE: Use FindMainDeclaration to skip forward declarations and find
