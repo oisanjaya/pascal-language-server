@@ -57,16 +57,18 @@ var
     out IsString, IsComment, isKeyword: Boolean);
   const
     // A comprehensive list of Free Pascal / Delphi reserved keywords
-    PascalKeywords: array[0..67] of string = (
-      'absolute', 'and', 'array', 'as', 'asm', 'begin', 'case', 'class', 'const',
-      'constructor', 'destructor', 'dispose', 'div', 'do', 'downto', 'else',
-      'end', 'except', 'exports', 'file', 'finalization', 'finally', 'for',
-      'function', 'goto', 'if', 'implementation', 'in', 'inherited',
-      'initialization', 'inline', 'interface', 'is', 'label', 'library', 'mod',
-      'new', 'nil', 'not', 'object', 'of', 'operator', 'or', 'out', 'packed',
-      'procedure', 'program', 'property', 'raise', 'record', 'repeat',
-      'resourcestring', 'set', 'shl', 'shr', 'string', 'then', 'threadvar',
-      'to', 'try', 'type', 'unit', 'until', 'uses', 'var', 'while', 'with', 'xor'
+    PascalKeywords: array[0..104] of string = (
+    'absolute','abstract','alias','and','array','as','asm','assembler','begin','break','case',
+    'cdecl','class','const','constref','constructor','continue','Cppdecl','default','destructor',
+    'dispose','div','do','downto','else','end','except','exit','export','exports','external',
+    'false','file','finalization','finally','for','forward','function','generic','goto','if',
+    'implementation','in','index','inherited','initialization','inline','interface','is','label',
+    'library','local','mod','name','new','nil','nostackframe','not','object','of','oldfpccall',
+    'on','operator','or','out','override','packed','pascal','private','procedure','program',
+    'property','protected','public','published','raise','read','record','register','reintroduce',
+    'repeat','safecall','self','set','shl','shr','softfloat','specialize','stdcall','string',
+    'then','threadvar','to','true','try','type','unit','until','uses','var','virtual','while',
+    'with','write','xor'
     );
   var
     RealPos, i: Integer;
@@ -194,18 +196,25 @@ begin with Params do
       
       FindMainDeclaration returns the main declaration location.
     }
-    if not IsString and not IsComment then
-      if CodeToolBoss.FindMainDeclaration(Code, X + 1, Y + 1, NewCode, NewX, NewY, NewTopLine) then
-        begin
-          Result := TLocation.Create;
-          Result.uri := PathToURI(NewCode.Filename);
-          Result.range := GetIdentifierRangeAtPos(NewCode, NewX, NewY - 1);
-        end
-      else
-        begin
-          Result := nil;
+    if not (IsString or IsComment or isKeyword) then
+      begin
+        if CodeToolBoss.FindMainDeclaration(Code, X + 1, Y + 1, NewCode, NewX, NewY, NewTopLine) then
+          begin
+            Result := TLocation.Create;
+            Result.uri := PathToURI(NewCode.Filename);
+            Result.range := GetIdentifierRangeAtPos(NewCode, NewX, NewY - 1);
+          end
+        else
+          begin
+            Result := nil;
             PublishCodeToolsError(Transport,'');
-        end;
+          end;
+      end
+    else
+      begin
+        Result := nil;
+        PublishCodeToolsError(Transport,'');
+      end;
   end;
 end;
 
