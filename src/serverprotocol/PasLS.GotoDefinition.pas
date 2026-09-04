@@ -27,7 +27,7 @@ uses
   { RTL }
   Classes, sysutils,
   { Code Tools }
-  CodeToolManager, CodeCache, BasicCodeTools, CodeTree,
+  CodeToolManager, CodeCache, BasicCodeTools, CodeTree, CodeAtom,
   { Protocol }
   LSP.Base , LSP.Basic;
 
@@ -53,124 +53,44 @@ var
 
   IsString, IsComment, isKeyword: Boolean;
 
-  procedure GetContextAtPosition(CodeBuffer: TCodeBuffer; CaretX, CaretY: Integer; 
-    out IsString, IsComment, isKeyword: Boolean);
-  const
-    // A comprehensive list of Free Pascal / Delphi reserved keywords
-    PascalKeywords: array[0..104] of string = (
-    'absolute','abstract','alias','and','array','as','asm','assembler','begin','break','case',
-    'cdecl','class','const','constref','constructor','continue','Cppdecl','default','destructor',
-    'dispose','div','do','downto','else','end','except','exit','export','exports','external',
-    'false','file','finalization','finally','for','forward','function','generic','goto','if',
-    'implementation','in','index','inherited','initialization','inline','interface','is','label',
-    'library','local','mod','name','new','nil','nostackframe','not','object','of','oldfpccall',
-    'on','operator','or','out','override','packed','pascal','private','procedure','program',
-    'property','protected','public','published','raise','read','record','register','reintroduce',
-    'repeat','safecall','self','set','shl','shr','softfloat','specialize','stdcall','string',
-    'then','threadvar','to','true','try','type','unit','until','uses','var','virtual','while',
-    'with','write','xor'
-    );
+  function IsIdentifier(CodeBuffer: TCodeBuffer; CaretX, CaretY: Integer): Boolean; 
   var
-    RealPos, i: Integer;
-    StartWord, EndWord: Integer;
-    InStr, InLineComment, InBlock1, InBlock2: Boolean;
-    Src, CurrentWord, TestWord: String;
+    IsString, IsComment, isKeyword: Boolean;
+    CursorPos: TCodeXYPosition;
+    CodeTool: TCodeTool;
+    SameArea: TAtomPosition;
+    CleanPos: integer;
   begin
     IsString := False;
     IsComment := False;
     isKeyword := False;
 
-    CodeBuffer.LineColToPosition(CaretY, CaretX, RealPos);
-    
-    if RealPos < 1 then 
-      Exit;
-  
-    Src := CodeBuffer.Source;
-    InStr := False;
-    InLineComment := False; //  // ...
-    InBlock1 := False;      //  { ... }
-    InBlock2 := False;      //  (* ... *)
-    
-    i := 1;
-    while i <= RealPos do
-    begin
-      // Line comments terminate at line breaks
-      if Src[i] in [#13, #10] then 
-        InLineComment := False;
-  
-      if not InBlock1 and not InBlock2 and not InLineComment then
-      begin
-        if Src[i] = '''' then
-        begin
-          InStr := not InStr
-        end
-        else 
-        begin 
-          if not InStr then
-          begin
-            if Src[i] = '{' then 
-              InBlock1 := True
-            else if (i < Length(Src)) and (Src[i] = '(') and (Src[i+1] = '*') then
-            begin
-              InBlock2 := True;
-              Inc(i); // Skip the '*'
-            end
-            else if (i < Length(Src)) and (Src[i] = '/') and (Src[i+1] = '/') then
-            begin
-              InLineComment := True;
-              Inc(i); // Skip the second '/'
-            end;
-          end;
-        end;
-      end
-      else
-      begin
-        // Trick: If we've reached the caret position exactly, break out early.
-        // This ensures that clicking exactly on a closing '}' still registers 
-        // as being "inside" the comment block.
-        if i = RealPos then Break; 
-  
-        // Check for block comment terminators
-        if InBlock1 and (Src[i] = '}') then
-          InBlock1 := False
-        else if InBlock2 and (i < Length(Src)) and (Src[i] = '*') and (Src[i+1] = ')') then
-        begin
-          InBlock2 := False;
-          Inc(i); // Skip the ')'
-        end;
-      end;
-  
-      Inc(i);
-    end;
-  
-    // Final evaluation
-    IsComment := InBlock1 or InBlock2 or InLineComment;
-    IsString := InStr;
+    CursorPos.Code := CodeBuffer;
+    CursorPos.X := CaretX;
+    CursorPos.Y := CaretY;
+    CodeTool:=CodeToolBoss.FindCodeToolForSource(CodeBuffer);
 
-    if not (IsString or IsComment) then
+    if CodeTool.CaretToCleanPos(CursorPos, CleanPos) <> 0 then
+      exit;
+
+    CodeTool.BuildTreeAndGetCleanPos(CursorPos, CleanPos);
+    CodeTool.GetCleanPosInfo(-1, CleanPos, false, SameArea);
+    
+    if SameArea.Flag = cafNone then
+      IsComment := (SameArea.StartPos <= CleanPos) and (CleanPos < SameArea.EndPos);
+
+    if not IsComment then
       begin
-        if Src[RealPos] in ['a'..'z', 'A'..'Z', '0'..'9', '_'] then
-        begin
-          StartWord := RealPos;
-          while (StartWord > 1) and (Src[StartWord - 1] in ['a'..'z', 'A'..'Z', '0'..'9', '_']) do
-            Dec(StartWord);
-    
-          EndWord := RealPos;
-          while (EndWord < Length(Src)) and (Src[EndWord + 1] in ['a'..'z', 'A'..'Z', '0'..'9', '_']) do
-            Inc(EndWord);
-    
-          CurrentWord := Copy(Src, StartWord, EndWord - StartWord + 1);
-        end;
+        CodeTool.MoveCursorToCleanPos(SameArea.StartPos);
+        CodeTool.ReadNextAtom;
         
-        for TestWord in PascalKeywords do
-          begin
-            if CompareTextCT(TestWord, CurrentWord) = 0 then
-              begin
-                isKeyword := True;
-                break;
-              end;
-          end;
+        if CodeTool.AtomIsStringConstant then
+          IsString := True
+        else if CodeTool.StringIsKeyWord(CodeTool.GetAtom) then
+          isKeyword := True;
       end;
+
+    Result := not (IsString or isKeyword or IsComment);
   end;
 
 begin with Params do
@@ -178,8 +98,6 @@ begin with Params do
     Code := CodeToolBoss.FindFile(textDocument.localPath);
     X := position.character;
     Y := position.line;
-
-    GetContextAtPosition(Code, X + 1, Y + 1, IsString, IsComment, isKeyword);
 
     { 
       NOTE: Use FindMainDeclaration to skip forward declarations and find
@@ -196,7 +114,7 @@ begin with Params do
       
       FindMainDeclaration returns the main declaration location.
     }
-    if not (IsString or IsComment or isKeyword) then
+    if IsIdentifier(Code, X + 1, Y + 1) then
       begin
         if CodeToolBoss.FindMainDeclaration(Code, X + 1, Y + 1, NewCode, NewX, NewY, NewTopLine) then
           begin
