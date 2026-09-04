@@ -69,13 +69,21 @@ type
 
   TPublishDiagnostics = class(TNotificationMessage)
   private
+    fCodeToolErrors: TDiagnosticItems;
+    fUserMessages: TDiagnosticItems;
+    fParserErrors: TDiagnosticItems;
     function GetDiagnosticParams: TPublishDiagnosticsParams;
   public
     constructor Create; override;
     destructor Destroy; override;
+    procedure Send(aTransport : TMessageTransport); override;
     function HaveDiagnostics : Boolean;
     Property DiagnosticParams : TPublishDiagnosticsParams Read GetDiagnosticParams;
+    procedure AddCodeToolErrorDiagnostic(fileName, message: string; line, column, code: integer; severity: TDiagnosticSeverity);
+    procedure AddUserMessage(message: string; line, column, code: integer; severity: TDiagnosticSeverity);
     procedure Add(fileName, message: string; line, column, code: integer; severity: TDiagnosticSeverity);
+    procedure ClearUserMessages;
+    procedure ClearCodeToolErrors(fileName: string);
     procedure Clear(fileName: string);
   end;
 
@@ -86,10 +94,35 @@ uses SysUtils;
 
 { TPublishDiagnostics }
 
+procedure TPublishDiagnostics.ClearUserMessages;
+begin
+  DiagnosticParams.uri := '';
+  fUserMessages.Clear;
+end;
+
+procedure TPublishDiagnostics.ClearCodeToolErrors(fileName: string);
+begin
+  DiagnosticParams.uri := PathToURI(fileName);
+  fCodeToolErrors.Clear;
+end;
+
 procedure TPublishDiagnostics.Clear(fileName: string);
 begin
   DiagnosticParams.uri := PathToURI(fileName);
   DiagnosticParams.diagnostics.Clear;
+end;
+
+procedure TPublishDiagnostics.AddUserMessage(message: string; line, column, code: integer; severity: TDiagnosticSeverity);
+var
+  Diagnostic: TDiagnostic;
+begin
+  DiagnosticParams.uri := PathToURI(fileName);
+  Diagnostic := fUserMessages.Add;
+  Diagnostic.range.SetRange(line, column);
+  Diagnostic.severity := severity;
+  Diagnostic.code := code;
+  Diagnostic.source := 'Free Pascal Compiler';
+  Diagnostic.message := message;
 end;
 
 procedure TPublishDiagnostics.Add(fileName, message: string; line, column, code: integer; severity: TDiagnosticSeverity);
@@ -113,6 +146,10 @@ end;
 
 constructor TPublishDiagnostics.Create;
 begin  
+  fCodeToolErrors := TDiagnosticItems.Create;
+  fUserMessages := TDiagnosticItems.Create;
+  fParserErrors := TDiagnosticItems.Create;
+  
   params := TPublishDiagnosticsParams.Create;
   method := 'textDocument/publishDiagnostics';
 end;
@@ -120,12 +157,21 @@ end;
 destructor TPublishDiagnostics.Destroy; 
 begin
   params.Free;
+  fCodeToolErrors.Free;
+  fUserMessages.Free;
+  fParserErrors.Free;
+  
   inherited;
+end;
+
+procedure TPublishDiagnostics.Send(aTransport : TMessageTransport);
+begin
+  
 end;
 
 function TPublishDiagnostics.HaveDiagnostics: Boolean;
 begin
-  Result:=DiagnosticParams.diagnostics.Count>0;
+  Result:=(fUserMessages.Count + fCodeToolErrors.Count + fParserErrors.Count)>0;
 end;
 
 { TPublishDiagnosticsParams }
