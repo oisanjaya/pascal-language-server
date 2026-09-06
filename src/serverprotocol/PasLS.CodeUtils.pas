@@ -102,7 +102,7 @@ begin
   CursorPos.Code := CodeBuffer;
   CursorPos.X := X;
   CursorPos.Y := Y;
-  CodeTool:=CodeToolBoss.FindCodeToolForSource(CodeBuffer);
+  CodeTool:=TCodeTool(CodeToolBoss.FindCodeToolForSource(CodeBuffer));
 
   if CodeTool.CaretToCleanPos(CursorPos, CleanPos) <> 0 then
     exit;
