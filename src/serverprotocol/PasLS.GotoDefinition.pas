@@ -27,9 +27,9 @@ uses
   { RTL }
   Classes, sysutils,
   { Code Tools }
-  CodeToolManager, CodeCache, BasicCodeTools, CodeTree, CodeAtom,
+  CodeToolManager, CodeCache, BasicCodeTools, CodeTree,
   { Protocol }
-  LSP.Base , LSP.Basic;
+  LSP.Base, LSP.Basic;
 
 type
   
@@ -50,48 +50,6 @@ var
   NewCode: TCodeBuffer;
   X, Y, AbsPos: Integer;
   NewX, NewY, NewTopLine: integer;
-
-  IsString, IsComment, isKeyword: Boolean;
-
-  function IsIdentifier(CodeBuffer: TCodeBuffer; CaretX, CaretY: Integer): Boolean; 
-  var
-    IsString, IsComment, isKeyword: Boolean;
-    CursorPos: TCodeXYPosition;
-    CodeTool: TCodeTool;
-    SameArea: TAtomPosition;
-    CleanPos: integer;
-  begin
-    IsString := False;
-    IsComment := False;
-    isKeyword := False;
-
-    CursorPos.Code := CodeBuffer;
-    CursorPos.X := CaretX;
-    CursorPos.Y := CaretY;
-    CodeTool:=CodeToolBoss.FindCodeToolForSource(CodeBuffer);
-
-    if CodeTool.CaretToCleanPos(CursorPos, CleanPos) <> 0 then
-      exit;
-
-    CodeTool.BuildTreeAndGetCleanPos(CursorPos, CleanPos);
-    CodeTool.GetCleanPosInfo(-1, CleanPos, false, SameArea);
-    
-    if SameArea.Flag = cafNone then
-      IsComment := (SameArea.StartPos <= CleanPos) and (CleanPos < SameArea.EndPos);
-
-    if not IsComment then
-      begin
-        CodeTool.MoveCursorToCleanPos(SameArea.StartPos);
-        CodeTool.ReadNextAtom;
-        
-        if CodeTool.AtomIsStringConstant then
-          IsString := True
-        else if CodeTool.StringIsKeyWord(CodeTool.GetAtom) then
-          isKeyword := True;
-      end;
-
-    Result := not (IsString or isKeyword or IsComment);
-  end;
 
 begin with Params do
   begin
