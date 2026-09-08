@@ -224,6 +224,13 @@ begin
     X := position.character + 1;  // Convert to 1-based
     Y := position.line + 1;       // Convert to 1-based
 
+    if not IsIdentifier(Code, X + 1, Y + 1) then
+      begin
+        Result := nil;
+        PublishCodeToolsError(Transport,'');
+        Exit;
+      end;
+
     try
       // Find the main declaration to verify this is a valid identifier
       if not CodeToolBoss.FindMainDeclaration(Code, X, Y,
