@@ -75,7 +75,6 @@ begin with Params do
     if not IsIdentifier(Code, X + 1, Y + 1) then
       begin
         Result := nil;
-        PublishCodeToolsError(Transport,'');
         Exit;
       end;
 
