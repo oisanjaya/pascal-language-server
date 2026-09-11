@@ -152,6 +152,7 @@ end;
 
 function TReferencesRequest.Process(var Params: TReferenceParams): TLocationItems;
 var
+  Code: TCodeBuffer;
   Path: String;
   X, Y: Integer;
 
@@ -160,6 +161,14 @@ begin with Params do
     Path := textDocument.LocalPath;
     X := position.character;
     Y := position.line;
+
+    Code := CodeToolBoss.FindFile(TextDocument.LocalPath);
+    if not IsIdentifier(Code, X + 1, Y + 1) then
+    begin
+      Result := nil;
+      PublishCodeToolsError(Transport,'');
+      Exit;
+    end;
 
     Result := TLocationItems.Create;
     // if the main program file was provided via initializationOptions -> program

@@ -57,6 +57,13 @@ begin with Params do
     X := position.character;
     Y := position.line;
 
+    if not IsIdentifier(Code, X + 1, Y + 1) then
+      begin
+        Result := nil;
+        PublishCodeToolsError(Transport,'');
+        Exit;
+      end;
+
     if CodeToolBoss.JumpToMethod(Code, X + 1, Y + 1,
       NewCode, NewX, NewY, NewTopLine, BlockTopLine, BlockBottomLine, RevertableJump) then
       begin

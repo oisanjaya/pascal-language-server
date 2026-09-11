@@ -26,7 +26,7 @@ uses
   { Code Tools }
   CodeToolManager, CodeCache,
   { Protocol }
-  LSP.BaseTypes,LSP.Base, LSP.Hover, LSP.Basic;
+  LSP.BaseTypes,LSP.Base, LSP.Hover, LSP.Basic, PasLS.CodeUtils;
 
 Type
   { THoverRequest }
@@ -133,6 +133,12 @@ begin with Params do
     Code := CodeToolBoss.FindFile(textDocument.LocalPath);
     X := position.character;
     Y := position.line;
+
+    if not IsIdentifier(Code, X + 1, Y + 1) then
+      begin
+        Result := nil;
+        Exit;
+      end;
 
     try
       Hint := CodeToolBoss.FindSmartHint(Code, X + 1, Y + 1);

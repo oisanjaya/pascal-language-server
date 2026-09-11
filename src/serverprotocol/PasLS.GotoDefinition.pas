@@ -72,19 +72,18 @@ begin with Params do
       
       FindMainDeclaration returns the main declaration location.
     }
-    if IsIdentifier(Code, X + 1, Y + 1) then
+    if not IsIdentifier(Code, X + 1, Y + 1) then
       begin
-        if CodeToolBoss.FindMainDeclaration(Code, X + 1, Y + 1, NewCode, NewX, NewY, NewTopLine) then
-          begin
-            Result := TLocation.Create;
-            Result.uri := PathToURI(NewCode.Filename);
-            Result.range := GetIdentifierRangeAtPos(NewCode, NewX, NewY - 1);
-          end
-        else
-          begin
-            Result := nil;
-            PublishCodeToolsError(Transport,'');
-          end;
+        Result := nil;
+        PublishCodeToolsError(Transport,'');
+        Exit;
+      end;
+
+    if CodeToolBoss.FindMainDeclaration(Code, X + 1, Y + 1, NewCode, NewX, NewY, NewTopLine) then
+      begin
+        Result := TLocation.Create;
+        Result.uri := PathToURI(NewCode.Filename);
+        Result.range := GetIdentifierRangeAtPos(NewCode, NewX, NewY - 1);
       end
     else
       begin
