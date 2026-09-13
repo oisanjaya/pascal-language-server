@@ -175,3 +175,6 @@ executable on Windows.
 
 
 4. Happy debugging !
+
+## Github Releases
+This repo has `feature` branch that is used to compile Github Releases using FPC main branch (commit 9b118c4c1d) and Lazarus main branch (commit a3d4ec58c8). Because multiple error handling in parser not yet merged into FPC's stable branch.
