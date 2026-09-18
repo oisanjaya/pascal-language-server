@@ -94,7 +94,7 @@ type
 
 implementation
 uses
-  SysUtils, RegExpr, IdentCompletionTool, DefineTemplates,
+  Process, SysUtils, RegExpr, IdentCompletionTool, DefineTemplates,
   PasLS.CodeUtils;
 
 const
@@ -295,6 +295,7 @@ begin
 
   // other settings
   DoLog(kStatusPrefix+'Settings:');
+  DoLog(kSettingPrefix+'lazarusProjectFile: %s', [ServerSettings.lazarusProjectFile]);
   DoLog(kSettingPrefix+'maximumCompletions: %d', [ServerSettings.maximumCompletions]);
   DoLog(kSettingPrefix+'overloadPolicy: %s', [GetEnumName(TypeInfo(TOverloadPolicy),Ord(ServerSettings.overloadPolicy))]);
   DoLog(kSettingPrefix+'insertCompletionsAsSnippets: ', ServerSettings.insertCompletionsAsSnippets);
@@ -369,11 +370,13 @@ var
   Proj, Option, aPath, ConfigPath: String;
   CodeToolsOptions: TCodeToolsOptions;
   PathSwitchRegex: TRegExpr;
+  LazbuildPathSwitchRegex: TRegExpr;
   Macros: TMacroMap;
   WorkspacePaths: TStringList;
   RootPath, IncludePathTemplate, UnitPathTemplate: TDefineTemplate;
   Opt: TServerSettings;
   FPCOptions: TStringArray;
+  LazbuildOutput: string;
 begin
   if Params.initializationOptions is TServerSettings then
     Opt := TServerSettings(Params.initializationOptions)
@@ -494,6 +497,25 @@ begin
         if ServerSettings.includeWorkspaceFoldersAsIncludePaths then
           FPCOptions += ['-Fi' + EscapeFileName(ExpandFileName(aPath))];
       end;
+
+    DoLog('===theoi: run lazbuild: %s', [ConcatPaths([CodeToolsOptions.LazarusSrcDir, 'lazbuild'])]);
+    if RunCommand(
+        ConcatPaths([CodeToolsOptions.LazarusSrcDir, 'lazbuild']),
+        ['--verbose', ServerSettings.lazarusProjectFile], LazbuildOutput
+      )
+    then
+      begin
+        try
+          LazbuildPathSwitchRegex := TRegExpr.Create('(?<=Param\[\d\d?\]=")-.+?(?=")');
+          if LazbuildPathSwitchRegex.Exec(LazbuildOutput) then
+            repeat
+              FPCOptions += [LazbuildPathSwitchRegex.Match[0]];
+            until not LazbuildPathSwitchRegex.ExecNext
+        finally
+          LazbuildPathSwitchRegex.Free;
+        end;
+      end;
+
 
     CodeToolsOptions.FPCOptions := JoinString(FPCOptions, ' ');
 

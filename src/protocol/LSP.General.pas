@@ -85,6 +85,7 @@ type
     fRootUri: string;
     fCapabilities: TClientCapabilities;
     fTrace: string;
+    fLazarusProjectFile: string;
     fInitializationOptions: TInitializationOptions;
     fWorkspaceFolders: TWorkspaceFolderItems;
     procedure SetCapabilities(AValue: TClientCapabilities);
@@ -118,6 +119,7 @@ type
     // It can be `null` if the client supports workspace folders but none are
     // configured.
     property workspaceFolders: TWorkspaceFolderItems read fWorkspaceFolders write SetWorkspaceFolders;
+    property lazarusProjectFile: string read fLazarusProjectFile write fLazarusProjectFile;
   public
     constructor create; override;
     destructor Destroy; override;
@@ -253,6 +255,7 @@ begin
     capabilities:=Src.Capabilities;
     trace:=Src.Trace;
     workspaceFolders:=Src.workspaceFolders;
+    lazarusProjectFile:=Src.lazarusProjectFile;
     end
   else
     inherited Assign(Source);

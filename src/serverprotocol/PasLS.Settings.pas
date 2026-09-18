@@ -88,6 +88,7 @@ type
     fScanFilePatterns: TStrings;
     fExcludeSymbols: TStrings;
     fExcludedSymbolSet: TExcludableSymbols;
+    fLazarusProjectFile: String;
     procedure SetFPCOptions(AValue: TStrings);
     procedure SetExcludeWorkspaceFolders(AValue: TStrings);
     procedure SetScanFilePatterns(AValue: TStrings);
@@ -144,6 +145,7 @@ type
     property flatSymbolMode: Boolean read fBooleans[12] write fBooleans[12];
     // Array of symbol types to exclude from document symbols
     property excludeSymbols: TStrings read fExcludeSymbols write SetExcludeSymbols;
+    property lazarusProjectFile: String read fLazarusProjectFile write fLazarusProjectFile;
   public
     constructor Create; override;
     Destructor Destroy; override;
@@ -303,6 +305,7 @@ begin
     Config:=Src.Config;
     ScanFilePatterns:=Src.ScanFilePatterns;
     ExcludeSymbols:=Src.ExcludeSymbols;
+    lazarusProjectFile:=Src.lazarusProjectFile;
     end
   else
     inherited Assign(aSource);
@@ -421,6 +424,7 @@ begin
   workspaceSymbols := true;
   minimalisticCompletions := false;
   checkInactiveRegions := true;
+  lazarusProjectFile := '';
   
   // errors/diagnostics
   checkSyntax := false;
