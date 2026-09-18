@@ -25,10 +25,11 @@ interface
 
 uses
   { RTL }
-  Classes, Types, fgl,
+  Classes, Types, fgl, strutils,
   { Code Tools }
   CodeToolManager, CodeCache, CodeTree, CodeAtom, 
   BasicCodeTools, PascalReaderTool, PascalParserTool,
+  PScanner,
   { Protocol }
   PasLS.CodeUtils,
   LSP.BaseTypes, LSP.Base, LSP.Basic, LSP.Window, LSP.Messages, LSP.Diagnostics;
@@ -172,17 +173,22 @@ begin
   MessageString := MessageString+Format('"%s" @ %d:%d;',[aErrorMessage,aLine,aCol]);
   // Message on stdErr
   aTransport.SendDiagnostic('Syntax Error -> %s',[MessageString]);
-  // Show message in the gui also
-  if ServerSettings.showSyntaxErrors then
-    ShowErrorMessage(aTransport, MessageString);
-  if aFileName<>'' then
-    fPublishDiagnostics.AddCodeToolError(aFileName,
-                    aErrorMessage,
-                    aLine - 1,
-                    aCol - 1,
-                    // TODO: code tools error ID is too large (int64), what should we do?
-                    1{CodeToolBoss.ErrorID},
-                    TDiagnosticSeverity.Error);
+  if not ContainsStr(MessageString, ': "identifier expected, but $') then
+    begin
+      // Show message in the gui also
+      if ServerSettings.showSyntaxErrors then
+        ShowErrorMessage(aTransport, MessageString);
+      if aFileName<>'' then
+        fPublishDiagnostics.AddCodeToolError(aFileName,
+                        aErrorMessage,
+                        aLine - 1,
+                        aCol - 1,
+                        // TODO: code tools error ID is too large (int64), what should we do?
+                        1{CodeToolBoss.ErrorID},
+                        TDiagnosticSeverity.Error);
+    end
+  else
+    aTransport.SendDiagnostic('CodeTool hack: ''identifier expected, but $''');
 end;
 
 { Publish the last code tools error as a diagnostics }
@@ -325,6 +331,8 @@ var
   Tool: TCodeTool;
   Node: TCodeTreeNode;
   IdentifiersPos: TCodeXYPositions;
+  IdentifiersCleanPos: Integer;
+  IdentifierStr: String;
   Gatherer: TIdentifierGatherer;
   NewCode: TCodeBuffer;
   NewX, NewY, NewTopLine: integer;
@@ -346,12 +354,34 @@ begin
     for i := 0 to IdentifiersPos.Count - 1 do
       begin
         with IdentifiersPos.Items[i]^ do
-          begin
-            if CodeToolBoss.FindMainDeclaration(Code, X, Y, NewCode, NewX, NewY, NewTopLine) then
-              Continue
-            else
-              AddCodeToolError(aTransport);
-          end;
+          if Tool.CaretToCleanPos(IdentifiersPos.Items[i]^, IdentifiersCleanPos) = 0 then
+            begin
+              Tool.MoveCursorToCleanPos(IdentifiersCleanPos);
+              Tool.ReadNextAtom;
+              IdentifierStr := Tool.GetAtom;
+              
+              if not ((Tool.StringIsKeyWord(IdentifierStr)) or
+                (UpperCase(IdentifierStr) = 'ABSOLUTE') or
+                (UpperCase(IdentifierStr) = 'CONSTREF') or
+                (UpperCase(IdentifierStr) = 'GENERIC') or
+                (UpperCase(IdentifierStr) = 'INLINE') or
+                (UpperCase(IdentifierStr) = 'ON') or
+                (UpperCase(IdentifierStr) = 'OUT') or
+                (UpperCase(IdentifierStr) = 'OVERLOAD') or
+                (UpperCase(IdentifierStr) = 'OVERRIDE') or
+                (UpperCase(IdentifierStr) = 'PRIVATE') or
+                (UpperCase(IdentifierStr) = 'PROTECTED') or
+                (UpperCase(IdentifierStr) = 'PUBLIC') or
+                (UpperCase(IdentifierStr) = 'PUBLISHED') or
+                (UpperCase(IdentifierStr) = 'REINTRODUCE') or
+                (UpperCase(IdentifierStr) = 'VIRTUAL')) then
+                begin
+                  if CodeToolBoss.FindMainDeclaration(Code, X, Y, NewCode, NewX, NewY, NewTopLine) then
+                    Continue
+                  else
+                    AddCodeToolError(aTransport);
+                end
+            end
       end
   finally
     Gatherer.Free;
@@ -382,6 +412,7 @@ procedure TIdentifierGatherer.OnIdentifierFound(Sender: TPascalParserTool;
 
 
 var
+  IdentifierPChar: PChar;
   IdentifierStr: string;
   CodeTool: TCodeTool;
   IdentifierPos: TCodeXYPosition;
@@ -393,10 +424,16 @@ begin
   CodeTool := TCodeTool(Sender);
   if CodeTool.CleanPosToCaretAndTopLine(IdentifierCleanPos, IdentifierPos, NewTopLine) then
     begin
-      IdentifierStr := GetIdentifier(@Sender.Src[IdentifierCleanPos]);
-      if IdentifierStr <> '' then
+      IdentifierPChar := @Sender.Src[IdentifierCleanPos];
+      if IdentifierPChar <> nil then
         begin
-          FIdentifiers.Add(IdentifierPos);
+          SetString(IdentifierStr, IdentifierPChar, GetIdentLen(IdentifierPChar));
+    
+          if IdentifierStr <> '' then
+            begin
+              FIdentifiers.Add(IdentifierPos);
+            end;
+          
         end;
     end;
 end;
