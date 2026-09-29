@@ -25,11 +25,7 @@ interface
 
 uses
   { RTL }
-<<<<<<< Updated upstream
-  Classes, Types,
-=======
   Classes, Types, fgl, StrUtils,
->>>>>>> Stashed changes
   { Code Tools }
   CodeToolManager, CodeCache,
   { Protocol }
