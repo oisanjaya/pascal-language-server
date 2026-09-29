@@ -25,7 +25,11 @@ interface
 
 uses
   { RTL }
+<<<<<<< Updated upstream
   Classes, Types,
+=======
+  Classes, Types, fgl, StrUtils,
+>>>>>>> Stashed changes
   { Code Tools }
   CodeToolManager, CodeCache,
   { Protocol }
@@ -120,6 +124,8 @@ begin
   aCol:=CodeToolBoss.ErrorColumn;
   if CodeToolBoss.ErrorCode<> nil then
     begin
+    if StartsStr('In front of code.',  aErrorMessage) then
+      Exit;
     aFileName:=CodeToolBoss.ErrorCode.FileName;
     MessageString:=aFileName+': ';
     end
