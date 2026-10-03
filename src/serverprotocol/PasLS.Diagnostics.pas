@@ -25,7 +25,7 @@ interface
 
 uses
   { RTL }
-  Classes, Types, fgl,
+  Classes, Types, fgl, StrUtils,
   { Code Tools }
   CodeToolManager, CodeCache, CodeTree, CodeAtom, 
   BasicCodeTools, PascalReaderTool, PascalParserTool,
@@ -161,6 +161,8 @@ begin
   aCol:=CodeToolBoss.ErrorColumn;
   if CodeToolBoss.ErrorCode<> nil then
     begin
+    if StartsStr('In front of code.',  aErrorMessage) then
+      Exit;
     aFileName:=CodeToolBoss.ErrorCode.FileName;
     MessageString:=aFileName+': ';
     end
