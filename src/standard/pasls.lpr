@@ -31,10 +31,7 @@ uses
   { Protocol }
   PasLS.AllCommands, PasLS.Settings, PasLS.Commands,
   LSP.Base, LSP.Basic, LSP.Capabilities, LSP.Options,
-  PasLS.TextLoop, PasLS.LSConfig, PasLS.General,
-  { LazLogger }
-  lazlogger
-  ;
+  PasLS.TextLoop, PasLS.LSConfig, PasLS.General;
 
 Type
 
@@ -299,8 +296,6 @@ end;
 
 
 begin
-  DebugLogger.LogName := '~/lazlogger.log';
-  DebugLogger.CloseLogFileBetweenWrites := True;
   // Show help for the server
   if ParamStr(1) = '-h' then
     begin
