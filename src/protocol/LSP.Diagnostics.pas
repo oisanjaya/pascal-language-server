@@ -79,7 +79,7 @@ type
     destructor Destroy; override;
     procedure SendDiagnostics(fileName: string; aTransport : TMessageTransport);
     Property DiagnosticParams : TPublishDiagnosticsParams Read GetDiagnosticParams;
-    procedure AddCodeToolError(fileName, message: string; line, column, code: integer; severity: TDiagnosticSeverity);
+    procedure AddCodeToolError(fileName, message: string; line, column, eline, ecolumn, code: integer; severity: TDiagnosticSeverity);
     procedure AddParserError(fileName, message: string; line, column, code: integer; severity: TDiagnosticSeverity);
     procedure AddUserMessage(message: string; line, column, code: integer; severity: TDiagnosticSeverity);
     procedure Add(fileName, message: string; line, column, code: integer; severity: TDiagnosticSeverity);
@@ -153,7 +153,7 @@ end;
 
 procedure TPublishDiagnostics.AddCodeToolError(
     fileName, message: string;
-    line, column, code: integer;
+    line, column, eline, ecolumn, code: integer;
     severity: TDiagnosticSeverity
   );
 var
@@ -184,7 +184,7 @@ begin
       Diagnostic := CodeToolErrorsDiagnostics.Add;
     end;
     
-  Diagnostic.range.SetRange(line, column);
+  Diagnostic.range.SetRange(line, column, eline, ecolumn);
   Diagnostic.severity := severity;
   Diagnostic.code := code;
   Diagnostic.source := 'Free Pascal Compiler';
