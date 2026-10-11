@@ -40,7 +40,7 @@ Type
   private
     fPublishDiagnostics: TPublishDiagnostics;
 
-    procedure AddCodeToolError(aTransport: TMessageTransport);
+    procedure AddCodeToolError(aTransport: TMessageTransport; Code: TCodeBuffer = nil);
     procedure AddUserDiagnostic(aTransport: TMessageTransport; UserMessage: String);
     procedure ShowErrorMessage(aTransport: TMessageTransport;  const MessageString: String);
     function StrictSyntaxCheck(aTransport: TMessageTransport; Code: TCodeBuffer): Boolean;
@@ -49,7 +49,7 @@ Type
     constructor Create;
     destructor Destroy; override;
     procedure CheckSyntax(aTransport : TMessageTransport; Code: TCodeBuffer);
-    procedure SendDiagnosticMessage(aTransport : TMessageTransport; UserMessage: String = '');
+    procedure SendDiagnosticMessage(aTransport : TMessageTransport; UserMessage: String = ''; Code: TCodeBuffer = nil);
     procedure AddParserError(fileName, message: string; line, column, code: integer; severity: TDiagnosticSeverity);
   end;
 
@@ -73,7 +73,7 @@ Type
   end;
 
 Function DiagnosticsHandler : TDiagnosticsHandler;
-procedure PublishCodeToolsError(aTransport : TMessageTransport; const aMessage : string);
+procedure PublishCodeToolsError(aTransport : TMessageTransport; const aMessage : string; Code: TCodeBuffer = nil);
 
 implementation
 
@@ -93,9 +93,9 @@ begin
 end;
 
 procedure PublishCodeToolsError(aTransport: TMessageTransport;
-  const aMessage: string);
+  const aMessage: string; Code: TCodeBuffer = nil);
 begin
-  DiagnosticsHandler.SendDiagnosticMessage(aTransport,aMessage);
+  DiagnosticsHandler.SendDiagnosticMessage(aTransport,aMessage, Code);
 end;
 
 constructor TDiagnosticsHandler.Create;
@@ -145,15 +145,18 @@ begin
 end;
 
 
-Procedure TDiagnosticsHandler.AddCodeToolError(aTransport: TMessageTransport);
+Procedure TDiagnosticsHandler.AddCodeToolError(aTransport: TMessageTransport; Code: TCodeBuffer = nil);
 
 Var
   MessageString : String;
   aLine,aCol : Integer;
+  eLine,eCol : Integer;
   aFileName : string;
   aErrorMessage : String;
+  identRange: TRange;
 
 begin
+  identRange := nil;
   aErrorMessage:=CodeToolBoss.ErrorMessage;
   if aErrorMessage='' then
     exit;
@@ -172,6 +175,21 @@ begin
   MessageString := MessageString+Format('"%s" @ %d:%d;',[aErrorMessage,aLine,aCol]);
   // Message on stdErr
   aTransport.SendDiagnostic('Syntax Error -> %s',[MessageString]);
+
+  eLine := aLine - 1;
+  eCol := aCol - 1;
+  if Assigned(Code) then
+    begin
+      identRange := GetIdentifierRangeAtPos(Code, aCol, aLine - 1);
+      
+      if Assigned(identRange) then
+        begin
+          eLine := identRange.&end.line;
+          eCol := identRange.&end.character;
+          identRange.Free;
+        end;
+    end;
+    
   // Show message in the gui also
   if ServerSettings.showSyntaxErrors then
     ShowErrorMessage(aTransport, MessageString);
@@ -180,6 +198,8 @@ begin
                     aErrorMessage,
                     aLine - 1,
                     aCol - 1,
+                    eLine,
+                    eCol,
                     // TODO: code tools error ID is too large (int64), what should we do?
                     1{CodeToolBoss.ErrorID},
                     TDiagnosticSeverity.Error);
@@ -187,7 +207,7 @@ end;
 
 { Publish the last code tools error as a diagnostics }
 
-procedure TDiagnosticsHandler.SendDiagnosticMessage(aTransport : TMessageTransport; UserMessage: String = '');
+procedure TDiagnosticsHandler.SendDiagnosticMessage(aTransport : TMessageTransport; UserMessage: String = ''; Code: TCodeBuffer = nil);
 var
   fileName: string;
 
@@ -200,7 +220,7 @@ begin
   else 
   if (CodeToolBoss.ErrorCode<>Nil) then
     begin
-      AddCodeToolError(aTransport);
+      AddCodeToolError(aTransport, Code);
       fileName:=CodeToolBoss.ErrorCode.FileName;
     end;
   if not ServerSettings.publishDiagnostics then
@@ -310,6 +330,7 @@ begin
   // Check code. These routines will possibly send messages to a window or stdout, depending on settings.
   fPublishDiagnostics.ClearCodeToolErrors(Code.Filename);
   fPublishDiagnostics.ClearParserError(Code.Filename);
+  fPublishDiagnostics.Clear(Code.Filename);
   
   CodeOk:=CodeToolsCheckSyntax(aTransport,Code);
   if CodeOK then
@@ -336,7 +357,7 @@ begin
 
   if not Result then
       // Errors found ? Publish them.
-      AddCodeToolError(aTransport);
+      AddCodeToolError(aTransport, Code);
 
   try
     IdentifiersPos := TCodeXYPositions.Create;
@@ -350,7 +371,7 @@ begin
             if CodeToolBoss.FindMainDeclaration(Code, X, Y, NewCode, NewX, NewY, NewTopLine) then
               Continue
             else
-              AddCodeToolError(aTransport);
+              AddCodeToolError(aTransport, Code);
           end;
       end
   finally
