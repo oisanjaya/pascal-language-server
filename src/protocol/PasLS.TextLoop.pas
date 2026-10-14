@@ -114,6 +114,7 @@ Var
   Content : TJSONStringType;
   I,ContentLength : Integer;
   P : PJSONCharType;
+  ContentData: TJSONData;
 
 begin
   while not Terminated and not EOF(FFile^) do
@@ -141,7 +142,11 @@ begin
         inc(P);
         end;
       if Content<>'' then
-        FQueue.Enqueue(GetJSON(Content, True));
+        begin
+          ContentData := GetJSON(Content, True);
+          FContext^.Log('===theoi: content: %s', [(ContentData as TJSONObject).Strings['method']]);
+          FQueue.Enqueue(ContentData);
+        end;
       FContext^.Log('Waiting request');
     end;
 end;
