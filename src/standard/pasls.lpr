@@ -23,6 +23,9 @@ program pasls;
 {$mode objfpc}{$H+}
 
 uses
+  {$IFDEF UNIX}
+  cthreads, // Required for multi-threading on Linux/macOS
+  {$ENDIF}
   {$IFDEF WINDOWS}
   Windows,
   {$ENDIF}
@@ -31,7 +34,7 @@ uses
   { Protocol }
   PasLS.AllCommands, PasLS.Settings, PasLS.Commands,
   LSP.Base, LSP.Basic, LSP.Capabilities, LSP.Options,
-  PasLS.TextLoop, PasLS.LSConfig, PasLS.General;
+  PasLS.TextLoop, PasLS.LSConfig, PasLS.General, LazLogger;
 
 Type
 
@@ -296,6 +299,8 @@ end;
 
 
 begin
+  DebugLogger.LogName := '~/lazlogger.log';
+  DebugLogger.CloseLogFileBetweenWrites := True;
   // Show help for the server
   if ParamStr(1) = '-h' then
     begin
