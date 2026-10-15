@@ -194,7 +194,7 @@ begin
       IO:=TLSPTextTransport.Create(@aOutput,@aError);
     while not RequestReader.Finished do
       begin
-        if RequestQueue.DequeueWaiting(Request, INFINITE) then
+        if RequestQueue.DequeueWaiting(Request, $FFFFFFFF) then
           begin
             // log request payload
             if VerboseDebugging then
