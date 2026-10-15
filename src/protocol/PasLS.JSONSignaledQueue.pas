@@ -46,10 +46,31 @@ begin
 end;
 
 procedure TJSONSignaledQueue.Enqueue(AItem: TJSONData);
+var
+  I: Integer;
+  JSONObj: TJSONObject;
 begin
   FLock.Acquire;
   try
-    FList.Add(AItem);
+    if AItem is TJSONObject then
+      begin
+        JSONObj := (AItem as TJSONObject);
+        if JSONObj.Get('method', '') = 'textDocument/didChange' then
+          begin
+            for I := 0 to FList.Count - 1 do
+              begin
+                if Flist[I] is TJsonObject then
+                  begin
+                    if (Flist[I] as TJSONObject).Get('method', '') = 'textDocument/didChange' then
+                      begin
+                        FList.Remove(FList[I]);
+                        break
+                      end;
+                  end;
+              end;
+          end;
+      end;    
+      FList.Add(AItem);
   finally
     FLock.Release;
   end;

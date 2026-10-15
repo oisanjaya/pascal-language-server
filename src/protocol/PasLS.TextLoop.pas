@@ -144,7 +144,6 @@ begin
       if Content<>'' then
         begin
           ContentData := GetJSON(Content, True);
-          FContext^.Log('===theoi: content: %s', [(ContentData as TJSONObject).Strings['method']]);
           FQueue.Enqueue(ContentData);
         end;
       FContext^.Log('Waiting request');
