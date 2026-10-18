@@ -44,18 +44,19 @@ Type
     procedure AddUserDiagnostic(aTransport: TMessageTransport; UserMessage: String);
     procedure ShowErrorMessage(aTransport: TMessageTransport;  const MessageString: String);
     function StrictSyntaxCheck(aTransport: TMessageTransport; Code: TCodeBuffer): Boolean;
-    function CodeToolsCheckSyntax(aTransport: TMessageTransport; Code: TCodeBuffer): boolean;
+    function CodeToolsCheckSyntax(aTransport: TMessageTransport; Code: TCodeBuffer; Range: TRange = nil): boolean;
   Public
     constructor Create;
     destructor Destroy; override;
-    procedure CheckSyntax(aTransport : TMessageTransport; Code: TCodeBuffer);
-    procedure SendDiagnosticMessage(aTransport : TMessageTransport; UserMessage: String = '');
+    procedure CheckSyntax(aTransport : TMessageTransport; Code: TCodeBuffer; Range: TRange = nil);
+    procedure SendDiagnosticMessage(aTransport : TMessageTransport; UserMessage: String = ''; Code: TCodeBuffer = nil);
     procedure AddParserError(fileName, message: string; line, column, code: integer; severity: TDiagnosticSeverity);
   end;
 
   TIdentifierGatherer = class
   private
     FIdentifiers: TCodeXYPositions;
+    FRange: TRange;
     {$if FPC_FULLVERSION >= 30301}
     procedure OnIdentifierFound(Sender: TPascalParserTool;
       IdentifierCleanPos: integer; Range: TEPRIRange;
@@ -68,7 +69,7 @@ Type
     {$endif}
 
   public
-    constructor Create(AIdentifiers: TCodeXYPositions);
+    constructor Create(AIdentifiers: TCodeXYPositions; ARange: TRange = nil);
     procedure Gather(Tool: TPascalReaderTool);
   end;
 
@@ -299,7 +300,7 @@ begin
   end;
 end;
 
-procedure TDiagnosticsHandler.CheckSyntax(aTransport : TMessageTransport; Code: TCodeBuffer);
+procedure TDiagnosticsHandler.CheckSyntax(aTransport : TMessageTransport; Code: TCodeBuffer; Range: TRange = nil);
 
 Var
   CodeOK : Boolean;
@@ -308,10 +309,15 @@ begin
   if not ServerSettings.checkSyntax then
     exit;
   // Check code. These routines will possibly send messages to a window or stdout, depending on settings.
-  fPublishDiagnostics.ClearCodeToolErrors(Code.Filename);
-  fPublishDiagnostics.ClearParserError(Code.Filename);
+  if Range = nil then
+    fPublishDiagnostics.Clear(Code.Filename)
+  else
+    begin
+      fPublishDiagnostics.ClearCodeToolErrors(Code.Filename, Range);
+      fPublishDiagnostics.ClearParserError(Code.Filename);
+    end;
   
-  CodeOk:=CodeToolsCheckSyntax(aTransport,Code);
+  CodeOk:=CodeToolsCheckSyntax(aTransport,Code, Range);
   if CodeOK then
       CodeOK:=StrictSyntaxCheck(aTransport,Code);
   // If we need to publish settings, then send the diagnostics.
@@ -319,7 +325,7 @@ begin
     fPublishDiagnostics.SendDiagnostics(Code.Filename, aTransport);
 end;
 
-function TDiagnosticsHandler.CodeToolsCheckSyntax(aTransport : TMessageTransport; Code: TCodeBuffer): boolean;
+function TDiagnosticsHandler.CodeToolsCheckSyntax(aTransport : TMessageTransport; Code: TCodeBuffer; Range: TRange = nil): boolean;
 
 var
   Tool: TCodeTool;
@@ -340,7 +346,7 @@ begin
 
   try
     IdentifiersPos := TCodeXYPositions.Create;
-    Gatherer := TIdentifierGatherer.Create(IdentifiersPos);
+    Gatherer := TIdentifierGatherer.Create(IdentifiersPos, Range);
     Gatherer.Gather(Tool);
 
     for i := 0 to IdentifiersPos.Count - 1 do
@@ -364,9 +370,10 @@ begin
   fPublishDiagnostics.AddParserError(fileName, message, line, column, code, severity);
 end;
 
-constructor TIdentifierGatherer.Create(AIdentifiers: TCodeXYPositions);
+constructor TIdentifierGatherer.Create(AIdentifiers: TCodeXYPositions; ARange: TRange = nil);
 begin
   FIdentifiers := AIdentifiers;
+  FRange:= ARange;
 end;
 
 {$if FPC_FULLVERSION >= 30301}
@@ -391,7 +398,8 @@ begin
     Exit;
   
   CodeTool := TCodeTool(Sender);
-  if CodeTool.CleanPosToCaretAndTopLine(IdentifierCleanPos, IdentifierPos, NewTopLine) then
+  if CodeTool.CleanPosToCaretAndTopLine(IdentifierCleanPos, IdentifierPos, NewTopLine) and
+    ((FRange = nil) or ((FRange <> nil) and FRange.InRange(IdentifierPos.X, IdentifierPos.Y, True)))  then
     begin
       IdentifierStr := GetIdentifier(@Sender.Src[IdentifierCleanPos]);
       if IdentifierStr <> '' then
