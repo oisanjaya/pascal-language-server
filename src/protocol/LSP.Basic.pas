@@ -78,7 +78,7 @@ type
     constructor Create(startLine, startColumn: integer; endLine, endColumn: integer); overload;
     Procedure  SetRange(line, column: integer; len: integer = 0); overload;
     Procedure  SetRange(startLine, startColumn: integer; endLine, endColumn: integer); overload;
-    function  InRange(line, column: integer; len: integer = 0): Boolean;
+    function  InRange(line, column: integer; WholeLine: Boolean = False): Boolean;
     Destructor destroy; override;
     Procedure Assign(Source : TPersistent); override;
     function ToString: String; override;
@@ -978,14 +978,14 @@ begin
   fEnd.Character:=endColumn;
 end;
 
-function TRange.InRange(line, column: integer; len: integer): Boolean;
+function TRange.InRange(line, column: integer; WholeLine: Boolean = False): Boolean;
 begin
   Result := ((fStart.line < line) and (fEnd.line > line)) or 
-    ((fStart.line = line) and (fStart.character <= column) and 
-      ((fEnd.line > line) or (fEnd.character >= column))
+    ((fStart.line = line) and (WholeLine or (fStart.character <= column)) and 
+    ((fEnd.line > line) or (WholeLine or (fEnd.character >= column)))
     ) or
-    ((fEnd.line = line) and (fEnd.character >= column) and 
-      ((fStart.line < line) or (fStart.character <= column))
+    ((fEnd.line = line) and (WholeLine or (fEnd.character >= column)) and 
+      ((fStart.line < line) or (WholeLine or (fStart.character <= column)))
     );
 end;
 
