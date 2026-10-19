@@ -70,7 +70,8 @@ type
   TPublishDiagnostics = class(TNotificationMessage)
   private
     fUserMessages: TDiagnosticItems;
-    fCodeToolErrors: TUriDiagnostics;
+    fCodeToolLexicalErrors: TUriDiagnostics;
+    fCodeToolSemanticErrors: TUriDiagnostics;
     fParserErrors: TUriDiagnostics;
 
     function GetDiagnosticParams: TPublishDiagnosticsParams;
@@ -79,7 +80,8 @@ type
     destructor Destroy; override;
     procedure SendDiagnostics(fileName: string; aTransport : TMessageTransport);
     Property DiagnosticParams : TPublishDiagnosticsParams Read GetDiagnosticParams;
-    procedure AddCodeToolError(fileName, message: string; line, column, eline, ecolumn, code: integer; severity: TDiagnosticSeverity);
+    procedure AddCodeToolLexicalError(fileName, message: string; line, column, eline, ecolumn, code: integer; severity: TDiagnosticSeverity);
+    procedure AddCodeToolSemanticError(fileName, message: string; line, column, eline, ecolumn, code: integer; severity: TDiagnosticSeverity);
     procedure AddParserError(fileName, message: string; line, column, code: integer; severity: TDiagnosticSeverity);
     procedure AddUserMessage(message: string; line, column, code: integer; severity: TDiagnosticSeverity);
     procedure Add(fileName, message: string; line, column, code: integer; severity: TDiagnosticSeverity);
@@ -107,12 +109,30 @@ var
   CodeToolErrorsDiagnostics: TDiagnosticItems;
 begin
   DiagnosticParams.uri := PathToURI(fileName);
-  if not fCodeToolErrors.
+  if not fCodeToolLexicalErrors.
     TryGetData(DiagnosticParams.uri, CodeToolErrorsDiagnostics)
   then
     begin
       CodeToolErrorsDiagnostics := TDiagnosticItems.Create;
-      fCodeToolErrors.Add(DiagnosticParams.uri, CodeToolErrorsDiagnostics);
+      fCodeToolLexicalErrors.Add(DiagnosticParams.uri, CodeToolErrorsDiagnostics);
+    end;
+
+  if Range = nil then
+    CodeToolErrorsDiagnostics.Clear
+  else
+    for I := 0 to CodeToolErrorsDiagnostics.Count - 1 do
+      begin
+        Diagnostic := CodeToolErrorsDiagnostics.Items[I];
+        if Range.InRange(Diagnostic.range.start.line, Diagnostic.range.start.character, True) then
+          CodeToolErrorsDiagnostics.Delete(I);
+      end;
+
+  if not fCodeToolSemanticErrors.
+    TryGetData(DiagnosticParams.uri, CodeToolErrorsDiagnostics)
+  then
+    begin
+      CodeToolErrorsDiagnostics := TDiagnosticItems.Create;
+      fCodeToolSemanticErrors.Add(DiagnosticParams.uri, CodeToolErrorsDiagnostics);
     end;
 
   CodeToolErrorsDiagnostics.Clear;
@@ -151,7 +171,7 @@ begin
   Diagnostic.message := message;
 end;
 
-procedure TPublishDiagnostics.AddCodeToolError(
+procedure TPublishDiagnostics.AddCodeToolLexicalError(
     fileName, message: string;
     line, column, eline, ecolumn, code: integer;
     severity: TDiagnosticSeverity
@@ -162,12 +182,52 @@ var
   i: Integer;
 begin
   DiagnosticParams.uri := PathToURI(fileName);
-  if not fCodeToolErrors.
+  if not fCodeToolLexicalErrors.
     TryGetData(DiagnosticParams.uri, CodeToolErrorsDiagnostics)
   then
     begin
       CodeToolErrorsDiagnostics := TDiagnosticItems.Create;
-      fCodeToolErrors.Add(DiagnosticParams.uri, CodeToolErrorsDiagnostics);
+      fCodeToolLexicalErrors.Add(DiagnosticParams.uri, CodeToolErrorsDiagnostics);
+    end;
+
+  i := 0;
+  while i < CodeToolErrorsDiagnostics.Count do
+    begin
+      Diagnostic := CodeToolErrorsDiagnostics.Items[i];
+      if Diagnostic.range.InRange(line, column) then
+        Break;
+      Inc(i);
+    end;
+
+  if i >= CodeToolErrorsDiagnostics.Count then
+    begin
+      Diagnostic := CodeToolErrorsDiagnostics.Add;
+    end;
+    
+  Diagnostic.range.SetRange(line, column, eline, ecolumn);
+  Diagnostic.severity := severity;
+  Diagnostic.code := code;
+  Diagnostic.source := 'Free Pascal Compiler';
+  Diagnostic.message := message;
+end;
+
+procedure TPublishDiagnostics.AddCodeToolSemanticError(
+    fileName, message: string;
+    line, column, eline, ecolumn, code: integer;
+    severity: TDiagnosticSeverity
+  );
+var
+  CodeToolErrorsDiagnostics: TDiagnosticItems;
+  Diagnostic: TDiagnostic;
+  i: Integer;
+begin
+  DiagnosticParams.uri := PathToURI(fileName);
+  if not fCodeToolSemanticErrors.
+    TryGetData(DiagnosticParams.uri, CodeToolErrorsDiagnostics)
+  then
+    begin
+      CodeToolErrorsDiagnostics := TDiagnosticItems.Create;
+      fCodeToolSemanticErrors.Add(DiagnosticParams.uri, CodeToolErrorsDiagnostics);
     end;
 
   i := 0;
@@ -290,7 +350,8 @@ begin
 
         // loop over all fCodeToolErrors[fileName] and fParserErrors[fileName]
         // add to DiagnosticParams.diagnostics
-      IterateDiagnosticItems(fCodeToolErrors);
+      IterateDiagnosticItems(fCodeToolSemanticErrors);
+      IterateDiagnosticItems(fCodeToolLexicalErrors);
       IterateDiagnosticItems(fParserErrors);
     end;
 
@@ -300,7 +361,8 @@ end;
 constructor TPublishDiagnostics.Create;
 begin  
   fUserMessages := TDiagnosticItems.Create;
-  fCodeToolErrors := TUriDiagnostics.Create(True);
+  fCodeToolLexicalErrors := TUriDiagnostics.Create(True);
+  fCodeToolSemanticErrors := TUriDiagnostics.Create(True);
   fParserErrors := TUriDiagnostics.Create(True);
   
   params := TPublishDiagnosticsParams.Create;
@@ -310,7 +372,8 @@ end;
 destructor TPublishDiagnostics.Destroy; 
 begin
   params.Free;
-  fCodeToolErrors.Free;
+  fCodeToolLexicalErrors.Free;
+  fCodeToolSemanticErrors.Free;
   fUserMessages.Free;
   fParserErrors.Free;
   

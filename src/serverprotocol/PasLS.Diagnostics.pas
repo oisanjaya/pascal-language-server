@@ -40,7 +40,8 @@ Type
   private
     fPublishDiagnostics: TPublishDiagnostics;
 
-    procedure AddCodeToolError(aTransport: TMessageTransport; Code: TCodeBuffer = nil);
+    procedure AddCodeToolLexicalError(aTransport: TMessageTransport; Code: TCodeBuffer = nil);
+    procedure AddCodeToolSemanticError(aTransport: TMessageTransport; Code: TCodeBuffer = nil);
     procedure AddUserDiagnostic(aTransport: TMessageTransport; UserMessage: String);
     procedure ShowErrorMessage(aTransport: TMessageTransport;  const MessageString: String);
     function StrictSyntaxCheck(aTransport: TMessageTransport; Code: TCodeBuffer): Boolean;
@@ -145,7 +146,7 @@ begin
 end;
 
 
-Procedure TDiagnosticsHandler.AddCodeToolError(aTransport: TMessageTransport; Code: TCodeBuffer = nil);
+Procedure TDiagnosticsHandler.AddCodeToolLexicalError(aTransport: TMessageTransport; Code: TCodeBuffer = nil);
 
 Var
   MessageString : String;
@@ -194,7 +195,62 @@ begin
   if ServerSettings.showSyntaxErrors then
     ShowErrorMessage(aTransport, MessageString);
   if aFileName<>'' then
-    fPublishDiagnostics.AddCodeToolError(aFileName,
+    fPublishDiagnostics.AddCodeToolLexicalError(aFileName,
+                    aErrorMessage,
+                    aLine - 1,
+                    aCol - 1,
+                    eLine,
+                    eCol,
+                    // TODO: code tools error ID is too large (int64), what should we do?
+                    1{CodeToolBoss.ErrorID},
+                    TDiagnosticSeverity.Error);
+end;
+
+procedure TDiagnosticsHandler.AddCodeToolSemanticError(aTransport: TMessageTransport; Code: TCodeBuffer = nil);
+Var
+  MessageString : String;
+  aLine,aCol : Integer;
+  eLine,eCol : Integer;
+  aFileName : string;
+  aErrorMessage : String;
+  identRange: TRange;
+begin
+  aErrorMessage:=CodeToolBoss.ErrorMessage;
+  if aErrorMessage='' then
+    exit;
+  aLine:=CodeToolBoss.ErrorLine;
+  aCol:=CodeToolBoss.ErrorColumn;
+  if CodeToolBoss.ErrorCode<> nil then
+    begin
+    aFileName:=CodeToolBoss.ErrorCode.FileName;
+    MessageString:=aFileName+': ';
+    end
+  else
+    begin
+    aFileName:='';
+    MessageString:='';
+    end;
+
+  MessageString := MessageString+Format('"%s" @ %d:%d;',[aErrorMessage,aLine,aCol]);
+  // Message on stdErr
+  aTransport.SendDiagnostic('Semantic Error -> %s',[MessageString]);
+
+  eLine := aLine - 1;
+  eCol := aCol - 1;
+  if Assigned(Code) then
+    begin
+      identRange := GetIdentifierRangeAtPos(Code, aCol, aLine - 1);
+      
+      if Assigned(identRange) then
+        begin
+          eLine := identRange.&end.line;
+          eCol := identRange.&end.character;
+          identRange.Free;
+        end;
+    end;
+    
+  if aFileName<>'' then
+    fPublishDiagnostics.AddCodeToolSemanticError(aFileName,
                     aErrorMessage,
                     aLine - 1,
                     aCol - 1,
@@ -220,7 +276,7 @@ begin
   else 
   if (CodeToolBoss.ErrorCode<>Nil) then
     begin
-      AddCodeToolError(aTransport, Code);
+      AddCodeToolLexicalError(aTransport, Code);
       fileName:=CodeToolBoss.ErrorCode.FileName;
     end;
   if not ServerSettings.publishDiagnostics then
@@ -357,7 +413,7 @@ begin
 
   if not Result then
       // Errors found ? Publish them.
-      AddCodeToolError(aTransport, Code);
+      AddCodeToolLexicalError(aTransport, Code);
 
   try
     IdentifiersPos := TCodeXYPositions.Create;
@@ -371,7 +427,7 @@ begin
             if CodeToolBoss.FindMainDeclaration(Code, X, Y, NewCode, NewX, NewY, NewTopLine) then
               Continue
             else
-              AddCodeToolError(aTransport, Code);
+              AddCodeToolLexicalError(aTransport, Code);
           end;
       end
   finally
