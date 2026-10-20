@@ -152,6 +152,16 @@ begin
     end;
 
   CodeToolErrorsDiagnostics.Clear;
+
+  if not fCodeToolLexicalErrors.
+    TryGetData(DiagnosticParams.uri, CodeToolErrorsDiagnostics)
+  then
+    begin
+      CodeToolErrorsDiagnostics := TDiagnosticItems.Create;
+      fCodeToolLexicalErrors.Add(DiagnosticParams.uri, CodeToolErrorsDiagnostics);
+    end;
+
+  CodeToolErrorsDiagnostics.Clear;
 end;
 
 procedure TPublishDiagnostics.AddUserMessage(

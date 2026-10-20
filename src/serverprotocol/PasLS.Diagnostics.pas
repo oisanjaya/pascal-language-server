@@ -427,7 +427,7 @@ begin
             if CodeToolBoss.FindMainDeclaration(Code, X, Y, NewCode, NewX, NewY, NewTopLine) then
               Continue
             else
-              AddCodeToolLexicalError(aTransport, Code);
+              AddCodeToolSemanticError(aTransport, Code);
           end;
       end
   finally
