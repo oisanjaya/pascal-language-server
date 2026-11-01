@@ -25,7 +25,6 @@ interface
 
 uses
   { RTL }
-<<<<<<< HEAD
   Classes, Types, fgl, StrUtils,
   { Code Tools }
   CodeToolManager, CodeCache, CodeTree, CodeAtom, 
