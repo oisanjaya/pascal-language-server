@@ -27,7 +27,7 @@ jobs:
             target: aarch64-linux
           # macOS Apple Silicon
           - os: macos-latest
-            target: aarch64-apple-darwin
+            target: aarch64-darwin
           # Windows 64-bit
           - os: windows-latest
             target: x86_64-win64
