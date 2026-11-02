@@ -489,11 +489,14 @@ end;
  
 procedure TIdentifierGatherer.Gather(Tool: TPascalReaderTool);
 begin
-{$if LCL_FullVersion >= 5000000}
+// {$if LCL_FullVersion >= 5000000}
+//   Tool.ForEachIdentifier(true, @OnIdentifierFound, nil, 0);
+// {$else}
+//   Tool.ForEachIdentifier(true, @OnIdentifierFound, nil);
+// {$endif}
+// 
+// For this branch assume having Lazarus source code >= 5000000
   Tool.ForEachIdentifier(true, @OnIdentifierFound, nil, 0);
-{$else}
-  Tool.ForEachIdentifier(true, @OnIdentifierFound, nil);
-{$endif}
 end;
 
 Initialization
