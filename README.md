@@ -7,6 +7,10 @@ Pascal](https://www.freepascal.org/), including Object Pascal. It uses
 [CodeTools](https://wiki.lazarus.freepascal.org/Codetools) from
 Lazarus as backend.
 
+## This fork
+
+This fork is built from latest Lazarus build enabling multi-error publishDiagnostics, better performance, and many Codetools fixes.
+
 ## Features
 
 To see the full list of implemented server capabilities in the current version use the command:
