@@ -58,16 +58,21 @@ Type
   private
     FIdentifiers: TCodeXYPositions;
     FRange: TRange;
-    {$if FPC_FULLVERSION >= 30301}
+    // {$if FPC_FULLVERSION >= 30301}
+    // procedure OnIdentifierFound(Sender: TPascalParserTool;
+    //   IdentifierCleanPos: integer; Range: TEPRIRange;
+    //   Node: TCodeTreeNode; Data: Pointer; var Abort: boolean;
+    //   RefsStart: integer);
+    // {$else}
+    // procedure OnIdentifierFound(Sender: TPascalParserTool;
+    //       IdentifierCleanPos: integer; Range: TEPRIRange;
+    //       Node: TCodeTreeNode; Data: Pointer; var Abort: boolean);
+    // {$endif}
+    // For this branch assume having Lazarus source code >= 5000000
     procedure OnIdentifierFound(Sender: TPascalParserTool;
       IdentifierCleanPos: integer; Range: TEPRIRange;
       Node: TCodeTreeNode; Data: Pointer; var Abort: boolean;
       RefsStart: integer);
-    {$else}
-    procedure OnIdentifierFound(Sender: TPascalParserTool;
-          IdentifierCleanPos: integer; Range: TEPRIRange;
-          Node: TCodeTreeNode; Data: Pointer; var Abort: boolean);
-    {$endif}
 
   public
     constructor Create(AIdentifiers: TCodeXYPositions; ARange: TRange = nil);
@@ -454,16 +459,21 @@ begin
   FRange:= ARange;
 end;
 
-{$if FPC_FULLVERSION >= 30301}
+// {$if FPC_FULLVERSION >= 30301}
+// procedure TIdentifierGatherer.OnIdentifierFound(Sender: TPascalParserTool;
+//   IdentifierCleanPos: integer; Range: TEPRIRange;
+//   Node: TCodeTreeNode; Data: Pointer; var Abort: boolean;
+//   RefsStart: integer);
+// {$else}
+// procedure TIdentifierGatherer.OnIdentifierFound(Sender: TPascalParserTool;
+//   IdentifierCleanPos: integer; Range: TEPRIRange;
+//   Node: TCodeTreeNode; Data: Pointer; var Abort: boolean);
+// {$endif}
+// For this branch assume having Lazarus source code >= 5000000
 procedure TIdentifierGatherer.OnIdentifierFound(Sender: TPascalParserTool;
   IdentifierCleanPos: integer; Range: TEPRIRange;
   Node: TCodeTreeNode; Data: Pointer; var Abort: boolean;
   RefsStart: integer);
-{$else}
-procedure TIdentifierGatherer.OnIdentifierFound(Sender: TPascalParserTool;
-  IdentifierCleanPos: integer; Range: TEPRIRange;
-  Node: TCodeTreeNode; Data: Pointer; var Abort: boolean);
-{$endif}
 
 
 var
