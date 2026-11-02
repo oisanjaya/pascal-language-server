@@ -489,7 +489,7 @@ end;
  
 procedure TIdentifierGatherer.Gather(Tool: TPascalReaderTool);
 begin
-{$if FPC_FULLVERSION >= 30301}
+{$if LCL_FullVersion >= 5000000}
   Tool.ForEachIdentifier(true, @OnIdentifierFound, nil, 0);
 {$else}
   Tool.ForEachIdentifier(true, @OnIdentifierFound, nil);
