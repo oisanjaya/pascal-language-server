@@ -2,15 +2,15 @@ name: Build pasls
 
 on:
   push:
-    branches: [trunk, main]
+    branches: [feature]
     tags: ['v*']
   pull_request:
-    branches: [trunk, main]
+    branches: [feature]
   workflow_dispatch:
 
 env:
   # Lazarus release to use for CodeTools source
-  LAZARUS_VERSION: "lazarus_4_0"
+  LAZARUS_VERSION: "feature"
 
 jobs:
   # Native builds for all platforms
@@ -25,12 +25,9 @@ jobs:
           # Linux ARM64
           - os: ubuntu-24.04-arm
             target: aarch64-linux
-          # macOS Intel
-          - os: macos-15-intel
-            target: x86_64-darwin
           # macOS Apple Silicon
           - os: macos-latest
-            target: aarch64-darwin
+            target: aarch64-apple-darwin
           # Windows 64-bit
           - os: windows-latest
             target: x86_64-win64
@@ -108,7 +105,7 @@ jobs:
       - name: Download Lazarus source
         run: |
           git clone --depth 1 --branch ${{ env.LAZARUS_VERSION }} \
-            https://gitlab.com/freepascal.org/lazarus/lazarus.git \
+            https://gitlab.com/oisanjaya/lazarus.git \
             "${{ runner.temp }}/lazarus"
         shell: bash
 
